@@ -17,6 +17,9 @@ type Config struct {
 	// DBDSN is optional: without it the server runs without PostgreSQL
 	// and /readyz reports the database as disabled.
 	DBDSN string
+	// CookieSecure sets the Secure attribute on session cookies.
+	// False for local HTTP development, true behind HTTPS.
+	CookieSecure bool
 }
 
 // FromEnv builds a Config from environment variables:
@@ -24,6 +27,7 @@ type Config struct {
 //	GRAPHWAR_ADDR      listen address, default ":8080"
 //	GRAPHWAR_LOG_LEVEL debug|info|warn|error, default "info"
 //	GRAPHWAR_DB_DSN    PostgreSQL DSN, default empty (database disabled)
+//	GRAPHWAR_COOKIE_SECURE  "true" behind HTTPS, default "false" (dev over HTTP)
 func FromEnv() (Config, error) {
 	addr := getenv("GRAPHWAR_ADDR", ":8080")
 	if err := checkAddr(addr); err != nil {
@@ -35,7 +39,27 @@ func FromEnv() (Config, error) {
 		return Config{}, fmt.Errorf("GRAPHWAR_LOG_LEVEL: %w", err)
 	}
 
-	return Config{Addr: addr, LogLevel: level, DBDSN: os.Getenv("GRAPHWAR_DB_DSN")}, nil
+	secure, err := parseBool(getenv("GRAPHWAR_COOKIE_SECURE", "false"))
+	if err != nil {
+		return Config{}, fmt.Errorf("GRAPHWAR_COOKIE_SECURE: %w", err)
+	}
+
+	return Config{
+		Addr:         addr,
+		LogLevel:     level,
+		DBDSN:        os.Getenv("GRAPHWAR_DB_DSN"),
+		CookieSecure: secure,
+	}, nil
+}
+
+func parseBool(s string) (bool, error) {
+	switch strings.ToLower(s) {
+	case "true", "1", "yes":
+		return true, nil
+	case "false", "0", "no", "":
+		return false, nil
+	}
+	return false, fmt.Errorf("%q: want true|false", s)
 }
 
 func getenv(key, fallback string) string {

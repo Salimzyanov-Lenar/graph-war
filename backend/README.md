@@ -22,6 +22,7 @@ curl -s http://localhost:8080/healthz
 | `GRAPHWAR_ADDR` | `:8080` | Адрес прослушивания `host:port` |
 | `GRAPHWAR_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `GRAPHWAR_DB_DSN` | пусто | DSN PostgreSQL; пусто — сервер работает без БД |
+| `GRAPHWAR_COOKIE_SECURE` | `false` | `true` за HTTPS (Secure-атрибут cookie сессии) |
 
 Невалидная конфигурация прерывает запуск с понятной ошибкой в stderr.
 

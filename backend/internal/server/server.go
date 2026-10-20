@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Salimzyanov-Lenar/graph-war/backend/internal/api"
 	"github.com/Salimzyanov-Lenar/graph-war/backend/internal/storage"
 )
 
@@ -20,11 +21,11 @@ type Server struct {
 }
 
 // New wires routes onto an http.Server. Dependencies grow here, not in main.
-func New(addr string, logger *slog.Logger, store *storage.Store) *Server {
-	return &Server{
+func New(addr string, logger *slog.Logger, store *storage.Store, cookieSecure bool) *Server {
+	s := &Server{
 		http: &http.Server{
 			Addr:              addr,
-			Handler:           newMux(store),
+			Handler:           newMux(store, cookieSecure),
 			ReadHeaderTimeout: 5 * time.Second,
 			ReadTimeout:       10 * time.Second,
 			WriteTimeout:      10 * time.Second,
@@ -32,17 +33,33 @@ func New(addr string, logger *slog.Logger, store *storage.Store) *Server {
 		logger: logger,
 		store:  store,
 	}
+	return s
 }
 
-func newMux(store *storage.Store) *http.ServeMux {
+func newMux(store *storage.Store, cookieSecure bool) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealth)
 	mux.HandleFunc("GET /readyz", handleReady(store))
+	if store != nil {
+		guests := &api.GuestHandler{
+			Store:   api.NewPgGuestStore(store.Queries),
+			Secure:  cookieSecure,
+			Limiter: api.NewRateLimiter(20, time.Minute, 10_000),
+		}
+		mux.Handle("POST /api/guest", guests)
+	}
 	return mux
 }
 
 // Listen blocks until the process is asked to stop.
 func (s *Server) Listen(ctx context.Context) error {
+	// Guest janitor: drop identities idle for over 7 days (bounded
+	// memory). Guests in live matches are touched on every request,
+	// so they are never idle.
+	janitorStop := make(chan struct{})
+	go s.runGuestJanitor(ctx, janitorStop)
+	defer close(janitorStop)
+
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- s.http.ListenAndServe()
@@ -71,6 +88,34 @@ func (s *Server) Listen(ctx context.Context) error {
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// runGuestJanitor deletes guests idle for over 7 days once an hour
+// until the server stops. Never deletes a guest seen recently.
+func (s *Server) runGuestJanitor(ctx context.Context, stop <-chan struct{}) {
+	if s.store == nil {
+		return
+	}
+	guests := api.NewPgGuestStore(s.store.Queries)
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-stop:
+			return
+		case <-ticker.C:
+			n, err := guests.DeleteIdle(time.Now().Add(-7 * 24 * time.Hour))
+			if err != nil {
+				s.logger.Warn("guest janitor failed", "err", err)
+				continue
+			}
+			if n > 0 {
+				s.logger.Info("guest janitor removed idle guests", "count", n)
+			}
+		}
+	}
 }
 
 // handleReady reports whether the process can serve now. Liveness (healthz)
