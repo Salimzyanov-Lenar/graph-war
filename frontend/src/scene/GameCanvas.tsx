@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { mountDemoScene } from './demoScene';
+import { mountFieldScene } from '../field/fieldScene';
 import type { SceneHandle } from './mountScene';
 
 export type MountScene = (host: HTMLElement, onError: (error: unknown) => void) => SceneHandle;
@@ -8,7 +8,7 @@ interface GameCanvasProps {
   mount?: MountScene;
 }
 
-export function GameCanvas({ mount = mountDemoScene }: GameCanvasProps) {
+export function GameCanvas({ mount = mountFieldScene }: GameCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
 
