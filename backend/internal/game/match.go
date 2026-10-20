@@ -235,6 +235,22 @@ func (m *Match) Surrender(side Side) error {
 	return nil
 }
 
+// Forfeit ends the match with a technical loss for `loser` (left the
+// room or stayed disconnected past the grace period).
+func (m *Match) Forfeit(loser Side) error {
+	if m.result != nil {
+		return ErrAlreadyFinished
+	}
+	if m.Phase != PhaseActive && m.Phase != PhaseResolving {
+		return ErrWrongPhase
+	}
+	if !loser.Valid() {
+		return ErrNotParticipant
+	}
+	m.finish(otherSide(loser), EndForfeitDisconnect)
+	return nil
+}
+
 // Abort marks the match aborted (server restart, both offline).
 func (m *Match) Abort() {
 	if m.result != nil {

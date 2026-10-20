@@ -20,6 +20,9 @@ type Config struct {
 	// CookieSecure sets the Secure attribute on session cookies.
 	// False for local HTTP development, true behind HTTPS.
 	CookieSecure bool
+	// WSOrigins are extra exact browser origins (scheme://host:port) allowed
+	// to open /ws. The request's own origin is always allowed.
+	WSOrigins []string
 }
 
 // FromEnv builds a Config from environment variables:
@@ -28,6 +31,7 @@ type Config struct {
 //	GRAPHWAR_LOG_LEVEL debug|info|warn|error, default "info"
 //	GRAPHWAR_DB_DSN    PostgreSQL DSN, default empty (database disabled)
 //	GRAPHWAR_COOKIE_SECURE  "true" behind HTTPS, default "false" (dev over HTTP)
+//	GRAPHWAR_WS_ORIGINS     comma-separated extra allowed WebSocket origins, default empty
 func FromEnv() (Config, error) {
 	addr := getenv("GRAPHWAR_ADDR", ":8080")
 	if err := checkAddr(addr); err != nil {
@@ -49,7 +53,18 @@ func FromEnv() (Config, error) {
 		LogLevel:     level,
 		DBDSN:        os.Getenv("GRAPHWAR_DB_DSN"),
 		CookieSecure: secure,
+		WSOrigins:    splitList(os.Getenv("GRAPHWAR_WS_ORIGINS")),
 	}, nil
+}
+
+func splitList(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, ",") {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func parseBool(s string) (bool, error) {

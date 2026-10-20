@@ -14,7 +14,7 @@ import (
 )
 
 func TestHealthz(t *testing.T) {
-	ts := httptest.NewServer(newMux(nil, false))
+	ts := httptest.NewServer(newMux(nil, Options{}, slog.Default()))
 	defer ts.Close()
 
 	resp, err := ts.Client().Get(ts.URL + "/healthz")
@@ -40,7 +40,7 @@ func TestHealthz(t *testing.T) {
 }
 
 func TestReadyzWithoutDatabase(t *testing.T) {
-	ts := httptest.NewServer(newMux(nil, false))
+	ts := httptest.NewServer(newMux(nil, Options{}, slog.Default()))
 	defer ts.Close()
 
 	resp, err := ts.Client().Get(ts.URL + "/readyz")
@@ -62,7 +62,7 @@ func TestReadyzWithUnreachableDatabase(t *testing.T) {
 	}
 	defer pool.Close()
 
-	ts := httptest.NewServer(newMux(storage.New(pool), false))
+	ts := httptest.NewServer(newMux(storage.New(pool), Options{}, slog.Default()))
 	defer ts.Close()
 
 	resp, err := ts.Client().Get(ts.URL + "/readyz")
@@ -78,7 +78,7 @@ func TestReadyzWithUnreachableDatabase(t *testing.T) {
 
 func TestListenShutsDownOnContextCancel(t *testing.T) {
 	// Port 0 lets the OS pick a free port; we only verify clean shutdown.
-	s := New("127.0.0.1:0", slog.Default(), nil, false)
+	s := New("127.0.0.1:0", slog.Default(), nil, Options{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)

@@ -47,7 +47,7 @@ func run() error {
 		logger.Info("database disabled: GRAPHWAR_DB_DSN is not set")
 	}
 
-	srv := server.New(cfg.Addr, logger, store, cfg.CookieSecure)
+	srv := server.New(cfg.Addr, logger, store, server.Options{CookieSecure: cfg.CookieSecure, WSOrigins: cfg.WSOrigins})
 	logger.Info("starting", "addr", cfg.Addr)
 	return srv.Listen(ctx)
 }

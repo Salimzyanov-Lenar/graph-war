@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Salimzyanov-Lenar/graph-war/backend/internal/api"
+	"github.com/Salimzyanov-Lenar/graph-war/backend/internal/rooms"
 	"github.com/Salimzyanov-Lenar/graph-war/backend/internal/storage"
 )
 
@@ -20,12 +21,19 @@ type Server struct {
 	store  *storage.Store // nil = server runs without a database
 }
 
+// Options are the non-database settings of the HTTP layer.
+type Options struct {
+	CookieSecure bool
+	WSOrigins    []string
+	Clock        rooms.Clock // nil = wall clock
+}
+
 // New wires routes onto an http.Server. Dependencies grow here, not in main.
-func New(addr string, logger *slog.Logger, store *storage.Store, cookieSecure bool) *Server {
+func New(addr string, logger *slog.Logger, store *storage.Store, opts Options) *Server {
 	s := &Server{
 		http: &http.Server{
 			Addr:              addr,
-			Handler:           newMux(store, cookieSecure),
+			Handler:           newMux(store, opts, logger),
 			ReadHeaderTimeout: 5 * time.Second,
 			ReadTimeout:       10 * time.Second,
 			WriteTimeout:      10 * time.Second,
@@ -36,18 +44,26 @@ func New(addr string, logger *slog.Logger, store *storage.Store, cookieSecure bo
 	return s
 }
 
-func newMux(store *storage.Store, cookieSecure bool) *http.ServeMux {
+func newMux(store *storage.Store, opts Options, logger *slog.Logger) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealth)
 	mux.HandleFunc("GET /readyz", handleReady(store))
+
+	// Guests live in PostgreSQL when it is configured, otherwise in memory.
+	var guestStore api.GuestStore = api.NewMemGuestStore()
 	if store != nil {
-		guests := &api.GuestHandler{
-			Store:   api.NewPgGuestStore(store.Queries),
-			Secure:  cookieSecure,
-			Limiter: api.NewRateLimiter(20, time.Minute, 10_000),
-		}
-		mux.Handle("POST /api/guest", guests)
+		guestStore = api.NewPgGuestStore(store.Queries)
 	}
+	mux.Handle("POST /api/guest", &api.GuestHandler{
+		Store:   guestStore,
+		Secure:  opts.CookieSecure,
+		Limiter: api.NewRateLimiter(20, time.Minute, 10_000),
+	})
+
+	hub := rooms.NewHub(rooms.Config{Clock: opts.Clock, Logger: logger})
+	auth := &api.Authenticator{Store: guestStore}
+	(&api.RoomsHandler{Auth: auth, Hub: hub, Limiter: api.NewRateLimiter(120, time.Minute, 10_000)}).Register(mux)
+	mux.Handle("GET /ws", &api.WSHandler{Auth: auth, Hub: hub, AllowedOrigins: opts.WSOrigins})
 	return mux
 }
 
