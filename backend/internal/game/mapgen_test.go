@@ -75,10 +75,10 @@ func TestGenerateMapFallbackOnImpossibleParams(t *testing.T) {
 func TestValidateMapRejectsBadMaps(t *testing.T) {
 	p := DefaultMapParams()
 	cases := map[string][]Obstacle{
-		"out of field":      {{X: 99, Y: 30, R: 5}, {X: 50, Y: 30, R: 2}},
-		"overlapping":       {{X: 30, Y: 30, R: 5}, {X: 33, Y: 30, R: 5}},
-		"on spawn":          {{X: 10, Y: 12, R: 4}, {X: 50, Y: 30, R: 2}},
-		"zero radius":       {{X: 30, Y: 30, R: 0}, {X: 70, Y: 30, R: 2}},
+		"out of field": {{X: 99, Y: 30, R: 5}, {X: 50, Y: 30, R: 2}},
+		"overlapping":  {{X: 30, Y: 30, R: 5}, {X: 33, Y: 30, R: 5}},
+		"on spawn":     {{X: 10, Y: 12, R: 4}, {X: 50, Y: 30, R: 2}},
+		"zero radius":  {{X: 30, Y: 30, R: 0}, {X: 70, Y: 30, R: 2}},
 	}
 	for name, obs := range cases {
 		if err := ValidateMap(obs, p); err == nil {
