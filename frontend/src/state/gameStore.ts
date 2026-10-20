@@ -2,6 +2,10 @@ import { applyRawMessage, initialGameState, leaveRoom, setConnection, type GameS
 import { backoffDelayMs, DEFAULT_RECONNECT, type ReconnectPolicy } from '../transport/reconnect';
 import type { Transport } from '../transport/transport';
 
+/** Коды закрытия /ws (backend/internal/rooms/clock.go): повторять подключение бессмысленно. */
+const CLOSE_REPLACED = 4001;
+const CLOSE_NO_ROOM = 4003;
+
 export interface ReconnectOptions {
   policy?: ReconnectPolicy;
   random?: () => number;
@@ -82,8 +86,18 @@ export function createGameStore(transport: Transport, options: StoreOptions = {}
       cancelTimer();
       set(setConnection(state, 'open'));
     },
-    onClose: () => {
+    onClose: (code) => {
       if (intentional || disposed) return;
+      if (code === CLOSE_REPLACED) {
+        cancelTimer();
+        set(setConnection(state, 'replaced'));
+        return;
+      }
+      if (code === CLOSE_NO_ROOM) {
+        cancelTimer();
+        set(setConnection(state, 'closed'));
+        return;
+      }
       if (auto && !finished() && state.connection !== 'idle') {
         scheduleReconnect();
         return;

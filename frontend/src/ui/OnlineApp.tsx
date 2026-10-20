@@ -3,6 +3,7 @@ import { SERVER_STATUS_TEXT, checkServerStatus, type ServerStatus } from '../api
 import { ApiError, createRoomsApi, inviteLink, readInvite, type Guest, type Room, type RoomsApi } from '../api/rooms';
 import type { ClientCommand } from '../contract/schemas';
 import { createGameStore, type GameStore } from '../state/gameStore';
+import { browserTabSession, wsProtocols } from '../api/tabSession';
 import { createWsTransport, defaultWsUrl } from '../transport/wsTransport';
 import { ConnectionBanner } from './ConnectionBanner';
 import { MatchScreen } from './MatchScreen';
@@ -13,6 +14,8 @@ const API_ERRORS: Record<string, string> = {
   room_expired: 'Комната закрыта или приглашение устарело.',
   unauthorized: 'Сессия не найдена — введите имя заново.',
   rate_limited: 'Слишком часто. Подождите немного.',
+  not_in_lobby: 'Матч уже начался.',
+  bad_request: 'Сервер не понял запрос.',
   invalid_invite: 'Приглашение не найдено. Попросите у друга новую ссылку.',
   invalid_name: 'Имя не подходит. Попробуйте другое.',
   name_too_long: 'Имя слишком длинное (не больше 24 символов).',
@@ -134,7 +137,7 @@ function RoomSession({ api, guest, joined, onLeave }: { api: RoomsApi; guest: Gu
   const [session, setSession] = useState<{ store: GameStore; send(command: ClientCommand): void }>();
 
   useEffect(() => {
-    const transport = createWsTransport(defaultWsUrl());
+    const transport = createWsTransport(defaultWsUrl(), undefined, () => wsProtocols(browserTabSession()));
     const store = createGameStore(transport, { reconnect: {} });
     store.connect();
     setSession({ store, send: (command) => transport.send(command) });

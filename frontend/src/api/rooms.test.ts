@@ -1,7 +1,27 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, createRoomsApi, inviteLink, readInvite } from './rooms';
+import { memoryTabSession, wsProtocols } from './tabSession';
 
 const json = (status: number, body?: unknown) => new Response(body === undefined ? null : JSON.stringify(body), { status });
+
+describe('токен вкладки', () => {
+  it('createGuest запрашивает tab-режим и запоминает токен; дальше он идёт в Authorization и в subprotocol WS', async () => {
+    const session = memoryTabSession();
+    const fetchMock = vi.fn(async (url: RequestInfo | URL, _init?: RequestInit) =>
+      url === '/api/guest' ? json(201, { guestId: 'g1', token: 'tok' }) : json(201, { roomId: 'r', inviteId: 'i' }),
+    );
+    const api = createRoomsApi(fetchMock as unknown as typeof fetch, session);
+
+    await api.createGuest('Аня');
+    expect((fetchMock.mock.calls[0]![1]!.headers as Record<string, string>)['X-Session-Mode']).toBe('tab');
+    expect(session.get()).toBe('tok');
+
+    await api.createRoom();
+    expect((fetchMock.mock.calls[1]![1]!.headers as Record<string, string>).Authorization).toBe('Bearer tok');
+    expect(wsProtocols(session)).toEqual(['graphwar.v1', 'bearer.tok']);
+    expect(wsProtocols(memoryTabSession())).toBeUndefined();
+  });
+});
 
 describe('createRoomsApi', () => {
   it('посылает запросы по контракту с cookie', async () => {

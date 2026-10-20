@@ -2,7 +2,7 @@ import { parseServerMessage, type ParseResult } from '../contract/parse';
 import type { MatchBody, MatchResult, Phase, Player, ServerMessage, Shot, Turn } from '../contract/schemas';
 import type { FieldState } from '../field/types';
 
-export type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'reconnecting';
+export type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'reconnecting' | 'replaced';
 
 export interface GameState {
   connection: ConnectionStatus;

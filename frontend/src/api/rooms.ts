@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { browserTabSession, type TabSession } from './tabSession';
 
-const guestSchema = z.object({ guestId: z.string() });
+const guestSchema = z.object({ guestId: z.string(), token: z.string().optional() });
 const roomSchema = z.object({ roomId: z.string(), inviteId: z.string() });
 
 /** Сервер в ответе возвращает только guestId; имя остаётся тем, что ввёл игрок. */
@@ -29,13 +30,20 @@ export interface RoomsApi {
   leaveRoom(roomId: string): Promise<void>;
 }
 
-/** REST из docs/contract.md §8. Личность — HttpOnly-cookie, поэтому всегда credentials: 'include'; guestId из ответа в запросах не используется. */
-export function createRoomsApi(fetchImpl: Fetch = (...args) => fetch(...args)): RoomsApi {
-  async function call(method: string, path: string, body?: unknown): Promise<unknown> {
+/** REST из docs/contract.md §8. Личность — токен вкладки (Authorization: Bearer, см. tabSession.ts) с запасной HttpOnly-cookie; guestId из ответа в запросах не используется. */
+export function createRoomsApi(
+  fetchImpl: Fetch = (...args) => fetch(...args),
+  session: TabSession = browserTabSession(),
+): RoomsApi {
+  async function call(method: string, path: string, body?: unknown, extra: Record<string, string> = {}): Promise<unknown> {
+    const headers: Record<string, string> = { ...extra };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    const token = session.get();
+    if (token) headers.Authorization = `Bearer ${token}`;
     const response = await fetchImpl(path, {
       method,
       credentials: 'include',
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: Object.keys(headers).length ? headers : undefined,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await response.text();
@@ -56,7 +64,8 @@ export function createRoomsApi(fetchImpl: Fetch = (...args) => fetch(...args)): 
 
   return {
     async createGuest(displayName) {
-      const { guestId } = guestSchema.parse(await call('POST', '/api/guest', { displayName }));
+      const { guestId, token } = guestSchema.parse(await call('POST', '/api/guest', { displayName }, { 'X-Session-Mode': 'tab' }));
+      if (token) session.set(token);
       return { guestId, displayName };
     },
     async createRoom() {

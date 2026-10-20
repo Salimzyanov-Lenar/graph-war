@@ -251,3 +251,52 @@ func TestTokenHashRoundTrip(t *testing.T) {
 		t.Fatal("two tokens share a hash")
 	}
 }
+
+func TestGuestTabModeIssuesIndependentBearerIdentities(t *testing.T) {
+	h, st := newTestHandler()
+	auth := &Authenticator{Store: st}
+
+	post := func(token string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(http.MethodPost, "/api/guest", strings.NewReader(`{"displayName":"Tab"}`))
+		r.Header.Set(SessionModeHeader, "tab")
+		if token != "" {
+			r.Header.Set("Authorization", "Bearer "+token)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+
+	a, b := post(""), post("")
+	if a.Code != http.StatusCreated || b.Code != http.StatusCreated {
+		t.Fatalf("codes %d %d", a.Code, b.Code)
+	}
+	if len(a.Result().Cookies()) != 0 {
+		t.Fatal("tab mode must not set a cookie")
+	}
+	ga, gb := decodeGuest(t, a), decodeGuest(t, b)
+	if ga.Token == "" || ga.Token == gb.Token || ga.GuestID == gb.GuestID {
+		t.Fatalf("identities not independent: %+v %+v", ga, gb)
+	}
+
+	again := post(ga.Token)
+	if again.Code != http.StatusOK || decodeGuest(t, again).GuestID != ga.GuestID {
+		t.Fatalf("bearer must resolve to the same guest, got %d", again.Code)
+	}
+
+	hdr := httptest.NewRequest(http.MethodGet, "/x", nil)
+	hdr.Header.Set("Authorization", "Bearer "+gb.Token)
+	if g, ok := auth.Guest(hdr); !ok || g.ID != gb.GuestID {
+		t.Fatal("Authorization bearer not accepted")
+	}
+	ws := httptest.NewRequest(http.MethodGet, "/ws", nil)
+	ws.Header.Set("Sec-WebSocket-Protocol", WSProtocol+", bearer."+ga.Token)
+	if g, ok := auth.Guest(ws); !ok || g.ID != ga.GuestID {
+		t.Fatal("subprotocol bearer not accepted")
+	}
+	bad := httptest.NewRequest(http.MethodGet, "/x", nil)
+	bad.Header.Set("Authorization", "Bearer nope")
+	if _, ok := auth.Guest(bad); ok {
+		t.Fatal("forged bearer accepted")
+	}
+}

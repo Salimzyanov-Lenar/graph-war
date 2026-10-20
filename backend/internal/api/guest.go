@@ -48,7 +48,14 @@ type guestRequest struct {
 type guestResponse struct {
 	GuestID     string `json:"guestId"`
 	DisplayName string `json:"displayName"`
+	// Token is returned only in tab mode (header X-Session-Mode: tab): the
+	// client keeps it per browser tab and sends it as a bearer token.
+	Token string `json:"token,omitempty"`
 }
+
+// SessionModeHeader switches POST /api/guest to a per-tab identity: no cookie
+// is set, the token comes back in the body.
+const SessionModeHeader = "X-Session-Mode"
 
 type errorResponse struct {
 	Code    string `json:"code"`
@@ -93,6 +100,11 @@ func (h *GuestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Header.Get(SessionModeHeader) == "tab" {
+		h.serveTab(w, r, name)
+		return
+	}
+
 	// Existing identity: the cookie decides, never the request body.
 	if c, err := r.Cookie(SessionCookie); err == nil {
 		if g, ok := h.lookup(w, r, c.Value); ok {
@@ -114,6 +126,29 @@ func (h *GuestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	setSessionCookie(w, token, h.Secure)
 	writeOK(w, http.StatusCreated, guestResponse{GuestID: g.ID, DisplayName: g.DisplayName})
+}
+
+func (h *GuestHandler) serveTab(w http.ResponseWriter, r *http.Request, name string) {
+	if token := bearerToken(r); token != "" {
+		if sum := hashToken(token); sum != nil {
+			if g, err := h.Store.GuestByTokenHash(sum); err == nil {
+				_ = h.Store.TouchGuest(g.ID)
+				writeOK(w, http.StatusOK, guestResponse{GuestID: g.ID, DisplayName: g.DisplayName, Token: token})
+				return
+			}
+		}
+	}
+	token, tokenHash, err := newToken()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "не удалось создать сессию")
+		return
+	}
+	g, err := h.Store.CreateGuest(tokenHash, name)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "не удалось создать гостя")
+		return
+	}
+	writeOK(w, http.StatusCreated, guestResponse{GuestID: g.ID, DisplayName: g.DisplayName, Token: token})
 }
 
 // lookup finds a guest by cookie token (hash → DB) and touches

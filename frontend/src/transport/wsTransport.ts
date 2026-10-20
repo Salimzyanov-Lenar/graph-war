@@ -11,12 +11,16 @@ export interface SocketLike {
   close(): void;
 }
 
-export type SocketFactory = (url: string) => SocketLike;
+export type SocketFactory = (url: string, protocols?: string[]) => SocketLike;
 
 const OPEN = 1;
 
-/** Реальный WebSocket за интерфейсом Transport. Авторизация — cookie, поэтому адрес только относительный к текущему origin. */
-export function createWsTransport(url: string, createSocket: SocketFactory = (u) => new WebSocket(u)): Transport {
+/** Реальный WebSocket за интерфейсом Transport. Адрес относительный к текущему origin; личность — токен вкладки в subprotocol (или cookie). */
+export function createWsTransport(
+  url: string,
+  createSocket: SocketFactory = (u, protocols) => new WebSocket(u, protocols),
+  protocols: () => string[] | undefined = () => undefined,
+): Transport {
   const listeners = new Set<TransportListener>();
   let socket: SocketLike | undefined;
 
@@ -27,14 +31,14 @@ export function createWsTransport(url: string, createSocket: SocketFactory = (u)
   return {
     connect() {
       if (socket) return;
-      const current = createSocket(url);
+      const current = createSocket(url, protocols());
       socket = current;
       current.onopen = () => listeners.forEach((l) => l.onOpen());
       current.onmessage = (event) => listeners.forEach((l) => l.onMessage(event.data));
-      current.onclose = () => {
+      current.onclose = (event) => {
         detach(current);
         if (socket === current) socket = undefined;
-        listeners.forEach((l) => l.onClose());
+        listeners.forEach((l) => l.onClose(event?.code));
       };
       current.onerror = () => {};
     },

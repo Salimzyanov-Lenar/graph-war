@@ -22,9 +22,9 @@ class FakeSocket implements SocketLike {
   receive(data: unknown) {
     this.onmessage?.({ data } as MessageEvent);
   }
-  drop() {
+  drop(code?: number) {
     this.readyState = 3;
-    this.onclose?.({} as CloseEvent);
+    this.onclose?.({ code } as CloseEvent);
   }
 }
 
@@ -51,6 +51,27 @@ describe('createWsTransport', () => {
     expect(listener.onOpen).toHaveBeenCalledTimes(1);
     expect(listener.onMessage).toHaveBeenCalledWith('{"type":"snapshot"}');
     expect(listener.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('передаёт код закрытия и subprotocol с токеном вкладки', () => {
+    const calls: (string[] | undefined)[] = [];
+    const sockets: FakeSocket[] = [];
+    const transport = createWsTransport(
+      'ws://h/ws',
+      (_url, protocols) => {
+        calls.push(protocols);
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+      () => ['graphwar.v1', 'bearer.tok'],
+    );
+    const onClose = vi.fn();
+    transport.subscribe({ onOpen: vi.fn(), onClose, onMessage: vi.fn() });
+    transport.connect();
+    sockets[0]!.drop(4001);
+    expect(calls).toEqual([['graphwar.v1', 'bearer.tok']]);
+    expect(onClose).toHaveBeenCalledWith(4001);
   });
 
   it('повторный connect не открывает второй сокет', () => {

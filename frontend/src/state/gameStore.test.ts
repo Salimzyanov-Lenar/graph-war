@@ -113,6 +113,19 @@ describe('createGameStore + MockTransport', () => {
       expect(store.getState()).toMatchObject({ connection: 'open', phase: 'active', lastSeq: 1 });
     });
 
+    it('код 4001 (сессию заняла другая вкладка) — без переподключения', () => {
+      const { transport, store, timers, connect } = setup();
+      store.connect();
+      transport.open();
+      transport.emit(fixtures.activeSnapshot);
+      connect.mockClear();
+
+      transport.drop(4001);
+      expect(store.getState().connection).toBe('replaced');
+      expect(timers).toHaveLength(0);
+      expect(connect).not.toHaveBeenCalled();
+    });
+
     it('после maxAttempts неудач сдаётся (closed); retry() даёт новую серию попыток', () => {
       const { transport, store, timers, connect } = setup(2);
       store.connect();

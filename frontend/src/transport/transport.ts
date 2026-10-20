@@ -2,7 +2,8 @@ import type { ClientCommand } from '../contract/schemas';
 
 export interface TransportListener {
   onOpen(): void;
-  onClose(): void;
+  /** `code` — код закрытия WebSocket, если он известен (4001 — сессию заняла другая вкладка). */
+  onClose(code?: number): void;
   /** Сырое сообщение: строка JSON (WebSocket) или уже разобранное значение (мок). Проверяет его слой состояния. */
   onMessage(raw: unknown): void;
 }

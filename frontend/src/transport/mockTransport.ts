@@ -31,8 +31,8 @@ export class MockTransport implements Transport {
     this.listeners.forEach((l) => l.onOpen());
   }
 
-  drop() {
-    this.listeners.forEach((l) => l.onClose());
+  drop(code?: number) {
+    this.listeners.forEach((l) => l.onClose(code));
   }
 
   /** Отдаёт «серверное» сообщение так же, как это сделал бы сокет: без предварительной проверки. */

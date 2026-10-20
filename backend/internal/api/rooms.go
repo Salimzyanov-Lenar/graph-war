@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/Salimzyanov-Lenar/graph-war/backend/internal/rooms"
 )
@@ -14,13 +15,41 @@ type Authenticator struct {
 	Store GuestStore
 }
 
-// Guest returns the guest of the request, or false for a missing/unknown cookie.
-func (a *Authenticator) Guest(r *http.Request) (Guest, bool) {
-	c, err := r.Cookie(SessionCookie)
-	if err != nil {
-		return Guest{}, false
+// WSProtocol is the subprotocol the server selects; a browser WebSocket cannot
+// set headers, so a per-tab token travels as a second offered subprotocol
+// "bearer.<token>".
+const WSProtocol = "graphwar.v1"
+
+const wsBearerPrefix = "bearer."
+
+// bearerToken extracts a per-tab token: Authorization header, or the WebSocket
+// subprotocol list. Empty if there is none.
+func bearerToken(r *http.Request) string {
+	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+		return strings.TrimSpace(auth[len("Bearer "):])
 	}
-	sum := hashToken(c.Value)
+	for _, line := range r.Header.Values("Sec-WebSocket-Protocol") {
+		for _, p := range strings.Split(line, ",") {
+			if p = strings.TrimSpace(p); strings.HasPrefix(p, wsBearerPrefix) {
+				return p[len(wsBearerPrefix):]
+			}
+		}
+	}
+	return ""
+}
+
+// Guest returns the guest of the request: per-tab bearer token first, then the
+// session cookie; false when neither identifies a guest.
+func (a *Authenticator) Guest(r *http.Request) (Guest, bool) {
+	token := bearerToken(r)
+	if token == "" {
+		c, err := r.Cookie(SessionCookie)
+		if err != nil {
+			return Guest{}, false
+		}
+		token = c.Value
+	}
+	sum := hashToken(token)
 	if sum == nil {
 		return Guest{}, false
 	}
