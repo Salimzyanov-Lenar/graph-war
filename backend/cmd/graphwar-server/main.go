@@ -10,7 +10,9 @@ import (
 	"syscall"
 
 	"github.com/Salimzyanov-Lenar/graph-war/backend/internal/config"
+	"github.com/Salimzyanov-Lenar/graph-war/backend/internal/db"
 	"github.com/Salimzyanov-Lenar/graph-war/backend/internal/server"
+	"github.com/Salimzyanov-Lenar/graph-war/backend/internal/storage"
 )
 
 func main() {
@@ -32,7 +34,20 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	srv := server.New(cfg.Addr, logger)
+	var store *storage.Store
+	if cfg.DBDSN != "" {
+		pool, err := db.Open(ctx, cfg.DBDSN)
+		if err != nil {
+			return err
+		}
+		defer pool.Close()
+		store = storage.New(pool)
+		logger.Info("database enabled")
+	} else {
+		logger.Info("database disabled: GRAPHWAR_DB_DSN is not set")
+	}
+
+	srv := server.New(cfg.Addr, logger, store)
 	logger.Info("starting", "addr", cfg.Addr)
 	return srv.Listen(ctx)
 }
