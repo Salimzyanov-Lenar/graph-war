@@ -33,9 +33,11 @@ npm run preview    # просмотр production-сборки
 - `src/ui/` — `FirePanel` (список своих бойцов кнопками, поле формулы, Enter, справка; текст не стирается при ошибке), `MatchScreen` (выбор мышью по полю и кнопкой делят одно состояние), `useGameState` (`useSyncExternalStore`).
 - `src/demo/demoSession.ts` — сценарий вместо сервера для ручной проверки UI: отвечает ошибками `bad_expression`/`domain_error_at_start`, на остальное — фиксированным выстрелом без расчёта попаданий и сменой хода. Заменится реальным транспортом в F04/F05.
 - `src/api/rooms.ts` — REST гостевого этапа (`/api/guest`, `/api/rooms…`) с `credentials: 'include'`, ответы проверяются zod; ссылка-приглашение `?room=…&invite=…`. `src/transport/wsTransport.ts` — настоящий `Transport` поверх `WebSocket` (`/ws` текущего origin; в команды добавляется `v: 1`).
-- `src/ui/OnlineApp.tsx` — имя → создать комнату или войти по ссылке → лобби (игроки, готовность) → матч. `?demo` в адресе включает мок-сессию без сервера.
+- `src/api/health.ts` — `GET /readyz`/`/healthz`, статус сервера на экране входа. `src/ui/OnlineApp.tsx` — имя → создать комнату или войти по ссылке → лобби (игроки, готовность) → матч. `?demo` в адресе включает мок-сессию без сервера.
 
 ## Работа с бэкендом
+
+Агенты backend и frontend переписываются через [`docs/agent-sync/`](../docs/agent-sync/README.md): вопросы и ответы по контракту — там, не в чате.
 
 `npm run dev` проксирует `/api` и `/ws` на `127.0.0.1:8080` (единый origin: cookie и проверка Origin). Бэкенд: `docker compose up` в `backend/`, затем `make run`. Бэкенд должен разрешать Origin `http://127.0.0.1:5173`.
 

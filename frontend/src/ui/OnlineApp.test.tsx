@@ -59,11 +59,12 @@ describe('OnlineApp', () => {
     });
   }
 
+  const checkStatus = async () => 'ready' as const;
   const flush = () => act(async () => {});
 
   it('имя → создание комнаты → ссылка-приглашение и открытый WebSocket на /ws', async () => {
     const api = makeApi();
-    act(() => root.render(<OnlineApp api={api} search="" origin="http://127.0.0.1:5173/" />));
+    act(() => root.render(<OnlineApp checkStatus={checkStatus} api={api} search="" origin="http://127.0.0.1:5173/" />));
 
     expect(button('Продолжить').disabled).toBe(true);
     type('  Аня ');
@@ -83,7 +84,7 @@ describe('OnlineApp', () => {
 
   it('по ссылке-приглашению гость сразу входит в комнату', async () => {
     const api = makeApi();
-    act(() => root.render(<OnlineApp api={api} search="?room=r9&invite=abc" />));
+    act(() => root.render(<OnlineApp checkStatus={checkStatus} api={api} search="?room=r9&invite=abc" />));
 
     type('Борис');
     await act(async () => button('Войти в комнату').click());
@@ -96,7 +97,7 @@ describe('OnlineApp', () => {
 
   it('ошибка входа показывается и не пускает дальше', async () => {
     const api = makeApi({ joinRoom: vi.fn(async () => Promise.reject(new ApiError(409, 'room_full'))) });
-    act(() => root.render(<OnlineApp api={api} search="?room=r9&invite=abc" />));
+    act(() => root.render(<OnlineApp checkStatus={checkStatus} api={api} search="?room=r9&invite=abc" />));
 
     type('Борис');
     await act(async () => button('Войти в комнату').click());
@@ -104,6 +105,12 @@ describe('OnlineApp', () => {
 
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('В комнате уже два игрока.');
     expect(StubSocket.instances).toHaveLength(0);
+  });
+
+  it('показывает состояние сервера на экране входа', async () => {
+    act(() => root.render(<OnlineApp checkStatus={async () => 'down'} api={makeApi()} search="" />));
+    await flush();
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('Сервер недоступен');
   });
 
   it('недоступный сервер объясняется человеческим текстом', () => {

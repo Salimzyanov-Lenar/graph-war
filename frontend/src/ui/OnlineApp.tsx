@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { SERVER_STATUS_TEXT, checkServerStatus, type ServerStatus } from '../api/health';
 import { ApiError, createRoomsApi, inviteLink, readInvite, type Guest, type Room, type RoomsApi } from '../api/rooms';
 import type { ClientCommand } from '../contract/schemas';
 import { createGameStore, type GameStore } from '../state/gameStore';
@@ -20,6 +21,8 @@ export function apiErrorText(error: unknown): string {
   return 'Не удалось связаться с сервером. Он запущен?';
 }
 
+const defaultCheckStatus = () => checkServerStatus();
+
 interface Joined {
   roomId: string;
   invite?: string;
@@ -29,12 +32,14 @@ interface OnlineAppProps {
   api?: RoomsApi;
   search?: string;
   origin?: string;
+  checkStatus?: () => Promise<ServerStatus>;
 }
 
 export function OnlineApp({
   api: apiProp,
   search = window.location.search,
   origin = window.location.origin + window.location.pathname,
+  checkStatus = defaultCheckStatus,
 }: OnlineAppProps) {
   const api = useMemo(() => apiProp ?? createRoomsApi(), [apiProp]);
   const invite = useMemo(() => readInvite(search), [search]);
@@ -43,6 +48,15 @@ export function OnlineApp({
   const [joined, setJoined] = useState<Joined>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<ServerStatus>('checking');
+
+  useEffect(() => {
+    let active = true;
+    void checkStatus().then((next) => active && setStatus(next));
+    return () => {
+      active = false;
+    };
+  }, [checkStatus]);
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -90,6 +104,9 @@ export function OnlineApp({
           {invite ? 'Войти в комнату' : 'Продолжить'}
         </button>
         {error && <p role="alert">{error}</p>}
+        <p className="fire-status" role="status">
+          {SERVER_STATUS_TEXT[status]}
+        </p>
       </form>
     );
   }

@@ -7,6 +7,8 @@ export default defineConfig({
     // Единый origin с бэкендом (cookie, Origin allowlist): /api и /ws идут на локальный сервер.
     proxy: {
       '/api': 'http://127.0.0.1:8080',
+      '/healthz': 'http://127.0.0.1:8080',
+      '/readyz': 'http://127.0.0.1:8080',
       '/ws': { target: 'ws://127.0.0.1:8080', ws: true },
     },
   },
