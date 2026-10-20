@@ -14,12 +14,16 @@ import (
 type Config struct {
 	Addr     string
 	LogLevel slog.Level
+	// DBDSN is optional: without it the server runs without PostgreSQL
+	// and /readyz reports the database as disabled.
+	DBDSN string
 }
 
 // FromEnv builds a Config from environment variables:
 //
 //	GRAPHWAR_ADDR      listen address, default ":8080"
 //	GRAPHWAR_LOG_LEVEL debug|info|warn|error, default "info"
+//	GRAPHWAR_DB_DSN    PostgreSQL DSN, default empty (database disabled)
 func FromEnv() (Config, error) {
 	addr := getenv("GRAPHWAR_ADDR", ":8080")
 	if err := checkAddr(addr); err != nil {
@@ -31,7 +35,7 @@ func FromEnv() (Config, error) {
 		return Config{}, fmt.Errorf("GRAPHWAR_LOG_LEVEL: %w", err)
 	}
 
-	return Config{Addr: addr, LogLevel: level}, nil
+	return Config{Addr: addr, LogLevel: level, DBDSN: os.Getenv("GRAPHWAR_DB_DSN")}, nil
 }
 
 func getenv(key, fallback string) string {
