@@ -29,7 +29,7 @@ func (s *fakeStore) CreateGuest(tokenHash []byte, displayName string) (Guest, er
 	defer s.mu.Unlock()
 	s.created++
 	s.nextID++
-	g := Guest{ID: string(rune('a' + s.nextID - 1)) + "-id", DisplayName: displayName}
+	g := Guest{ID: string(rune('a'+s.nextID-1)) + "-id", DisplayName: displayName}
 	s.guests[string(tokenHash)] = g
 	return g, nil
 }
@@ -164,12 +164,12 @@ func TestGuestNameValidation(t *testing.T) {
 		want int
 		code string
 	}{
-		"empty":      {`{"displayName":"   "}`, 400, "invalid_name"},
-		"too long":   {`{"displayName":"` + strings.Repeat("ж", 25) + `"}`, 400, "name_too_long"},
-		"no field":   {`{}`, 400, "invalid_name"},
-		"bad json":   {`{not json`, 400, "invalid_name"},
-		"24 ok":      {`{"displayName":"` + strings.Repeat("ж", 24) + `"}`, 201, ""},
-		"trim ok":    {`{"displayName":"  Ленар  "}`, 201, ""},
+		"empty":    {`{"displayName":"   "}`, 400, "invalid_name"},
+		"too long": {`{"displayName":"` + strings.Repeat("ж", 25) + `"}`, 400, "name_too_long"},
+		"no field": {`{}`, 400, "invalid_name"},
+		"bad json": {`{not json`, 400, "invalid_name"},
+		"24 ok":    {`{"displayName":"` + strings.Repeat("ж", 24) + `"}`, 201, ""},
+		"trim ok":  {`{"displayName":"  Ленар  "}`, 201, ""},
 	}
 	for name, tc := range cases {
 		w := postGuest(t, h, tc.body, nil)
@@ -224,7 +224,7 @@ func TestGuestRateLimited(t *testing.T) {
 func TestRateLimiterBoundedMemory(t *testing.T) {
 	l := NewRateLimiter(5, 1e9, 100)
 	for i := 0; i < 10_000; i++ {
-		l.Allow(string(rune(i%3000))) // many distinct keys, bounded map
+		l.Allow(string(rune(i % 3000))) // many distinct keys, bounded map
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
