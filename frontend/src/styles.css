@@ -121,3 +121,62 @@ body {
   color: #ff8a80;
   margin: 0;
 }
+
+.match-wrap {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  gap: 0.5rem;
+}
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+}
+
+.hud p {
+  margin: 0;
+}
+
+.hud-teams {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.hud-turn {
+  font-weight: 600;
+}
+
+.hud-clock {
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-outcome {
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #2a3550;
+}
+
+.hud-win {
+  border-color: #4caf50;
+}
+
+.hud-loss {
+  border-color: #ff7a59;
+}
+
+.hud-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hud button {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+}

@@ -2,6 +2,7 @@ import { Application, Container, Graphics, Text, type FederatedPointerEvent } fr
 import { mountScene, type SceneHandle, type Teardown } from '../scene/mountScene';
 import { sampleField } from './fixtures';
 import { FIGHTER_RADIUS, pickFighter } from './hitTest';
+import { shotDurationMs, shotProgress, visiblePath } from './shotPlayback';
 import type { FieldState, Fighter, Side } from './types';
 import { createViewport, type Viewport } from './viewport';
 
@@ -16,6 +17,8 @@ const COLORS = {
   obstacleEdge: 0x8793b3,
   dead: 0x6b7280,
   selection: 0xffd24a,
+  shot: 0xffe08a,
+  impact: 0xff5d5d,
   hover: 0xffffff,
   side: { A: 0x4f8cff, B: 0xff7a59 } satisfies Record<Side, number>,
 };
@@ -32,19 +35,78 @@ export function staticFieldSource(state: FieldState): FieldSource {
 
 export function setupFieldScene(app: Application, source: FieldSource): Teardown {
   const graphics = new Graphics();
+  const shotLayer = new Graphics();
   const labels = new Container();
-  app.stage.addChild(graphics, labels);
+  app.stage.addChild(graphics, shotLayer, labels);
   app.stage.eventMode = 'static';
   app.stage.cursor = 'default';
 
   let state = source.getState();
   let viewport: Viewport | undefined;
   let hoveredId: string | undefined;
+  let playback: { shotId: string; startedAt: number; durationMs: number } | undefined;
+  let seenShotId: string | undefined;
+
+  const progress = () => (playback ? shotProgress(playback.startedAt, performance.now(), playback.durationMs) : 1);
+
+  /** Новый live-выстрел запускает анимацию один раз (повтор shotId не перезапускает); смена или исчезновение выстрела отменяет старую. */
+  function syncShot() {
+    const shot = state?.shot;
+    if (!shot) {
+      playback = undefined;
+      seenShotId = undefined;
+      return;
+    }
+    if (playback && playback.shotId !== shot.shotId) playback = undefined;
+    if (shot.shotId === seenShotId) return;
+    seenShotId = shot.shotId;
+    if (shot.live) {
+      playback = { shotId: shot.shotId, startedAt: performance.now(), durationMs: shotDurationMs(shot.points) };
+    }
+  }
+
+  function drawShot() {
+    shotLayer.clear();
+    const shot = state?.shot;
+    if (!shot || !viewport) return;
+    const p = progress();
+    const animating = playback !== undefined && p < 1;
+    const path = visiblePath(shot.points, animating ? p : 1).map((point) => viewport!.worldToScreen(point));
+    const head = path[path.length - 1];
+    if (!head) return;
+    const alpha = animating ? 1 : 0.4;
+    if (path.length > 1) {
+      shotLayer.moveTo(path[0]!.x, path[0]!.y);
+      for (const point of path.slice(1)) shotLayer.lineTo(point.x, point.y);
+      shotLayer.stroke({ width: 3, color: COLORS.shot, alpha, join: 'round', cap: 'round' });
+    }
+    if (animating) {
+      shotLayer.circle(head.x, head.y, 5).fill(COLORS.shot);
+    } else if (shot.stopReason === 'hit') {
+      shotLayer.circle(head.x, head.y, 9).stroke({ width: 3, color: COLORS.impact, alpha });
+    }
+  }
+
+  const tick = () => {
+    if (!playback || progress() >= 1) {
+      app.ticker.remove(tick);
+      playback = undefined;
+      draw();
+      return;
+    }
+    drawShot();
+  };
 
   function draw() {
     state = source.getState();
+    syncShot();
+    if (playback) {
+      app.ticker.remove(tick);
+      app.ticker.add(tick);
+    }
     app.stage.hitArea = app.screen;
     graphics.clear();
+    shotLayer.clear();
     for (const child of labels.removeChildren()) child.destroy();
     if (!state) {
       viewport = undefined;
@@ -67,11 +129,14 @@ export function setupFieldScene(app: Application, source: FieldSource): Teardown
         .stroke({ width: 2, color: COLORS.obstacleEdge });
     }
     for (const fighter of state.fighters) {
-      drawFighter(graphics, labels, viewport, fighter, {
+      // Поражение показывается в момент конца анимации, а не в момент прихода события.
+      const hiddenKill = playback !== undefined && fighter.id === state.shot?.destroyedFighterId;
+      drawFighter(graphics, labels, viewport, hiddenKill ? { ...fighter, alive: true } : fighter, {
         selected: fighter.id === state.selectedFighterId,
         hovered: fighter.id === hoveredId,
       });
     }
+    drawShot();
   }
 
   function fighterAt(event: FederatedPointerEvent): Fighter | undefined {
@@ -107,11 +172,14 @@ export function setupFieldScene(app: Application, source: FieldSource): Teardown
 
   return () => {
     unsubscribe();
+    app.ticker.remove(tick);
+    playback = undefined;
     app.renderer.off('resize', draw);
     app.stage.off('pointermove', onMove);
     app.stage.off('pointerleave', onLeave);
     app.stage.off('pointertap', onTap);
     graphics.destroy();
+    shotLayer.destroy();
     labels.destroy({ children: true });
   };
 }

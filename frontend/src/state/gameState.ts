@@ -120,5 +120,12 @@ function applyEvent(state: GameState, message: Exclude<ServerMessage, { type: 's
 export function toFieldState(state: GameState, selectedFighterId?: string): FieldState | undefined {
   if (!state.match) return undefined;
   const { map, fighters } = state.match;
-  return { width: map.width, height: map.height, obstacles: map.obstacles, fighters, selectedFighterId };
+  const shot = state.lastShot && {
+    shotId: state.lastShot.shotId,
+    points: state.lastShot.points,
+    stopReason: state.lastShot.stopReason,
+    destroyedFighterId: state.lastShot.destroyedFighterId,
+    live: state.phase === 'resolving',
+  };
+  return { width: map.width, height: map.height, obstacles: map.obstacles, fighters, selectedFighterId, shot };
 }

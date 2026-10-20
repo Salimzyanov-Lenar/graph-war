@@ -174,11 +174,6 @@ function RoomView({
     return (
       <>
         <MatchScreen store={session.store} send={session.send} />
-        {state.result && (
-          <p role="status">
-            Матч окончен: {state.result.winnerSide ? `победила сторона ${state.result.winnerSide}` : 'без победителя'} ({state.result.reason}).
-          </p>
-        )}
         <button type="button" onClick={onLeave}>
           Выйти из комнаты
         </button>

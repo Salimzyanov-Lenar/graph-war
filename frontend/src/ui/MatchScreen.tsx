@@ -6,6 +6,7 @@ import { GameCanvas } from '../scene/GameCanvas';
 import { toFieldState } from '../state/gameState';
 import type { GameStore } from '../state/gameStore';
 import { FirePanel } from './FirePanel';
+import { MatchHud } from './MatchHud';
 import { useGameState } from './useGameState';
 
 interface MatchScreenProps {
@@ -54,9 +55,12 @@ export function MatchScreen({ store, send }: MatchScreenProps) {
   }, [state, selectedId, select]);
 
   return (
-    <div className="match">
-      <GameCanvas mount={mount} />
-      <FirePanel state={state} selectedId={selectedId} onSelect={select} send={send} />
+    <div className="match-wrap">
+      <MatchHud state={state} send={send} />
+      <div className="match">
+        <GameCanvas mount={mount} />
+        <FirePanel state={state} selectedId={selectedId} onSelect={select} send={send} />
+      </div>
     </div>
   );
 }
