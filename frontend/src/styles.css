@@ -103,3 +103,21 @@ body {
     width: auto;
   }
 }
+
+.lobby {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 24rem;
+}
+
+.lobby input,
+.lobby button {
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+}
+
+.lobby [role='alert'] {
+  color: #ff8a80;
+  margin: 0;
+}

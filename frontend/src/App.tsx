@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { createDemoSession, type DemoSession } from './demo/demoSession';
 import { MatchScreen } from './ui/MatchScreen';
+import { OnlineApp } from './ui/OnlineApp';
 
-export function App() {
+const isDemo = new URLSearchParams(window.location.search).has('demo');
+
+function Demo() {
   const [session, setSession] = useState<DemoSession>();
 
   useEffect(() => {
@@ -11,10 +14,16 @@ export function App() {
     return () => next.dispose();
   }, []);
 
+  return session ? <MatchScreen store={session.store} send={session.send} /> : null;
+}
+
+export function App() {
   return (
     <main className="app">
-      <h1>Graphwar <small>демо на моках, без сервера</small></h1>
-      {session && <MatchScreen store={session.store} send={session.send} />}
+      <h1>
+        Graphwar {isDemo && <small>демо на моках, без сервера</small>}
+      </h1>
+      {isDemo ? <Demo /> : <OnlineApp />}
     </main>
   );
 }
