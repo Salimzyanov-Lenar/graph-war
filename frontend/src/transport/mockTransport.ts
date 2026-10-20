@@ -5,6 +5,8 @@ export class MockTransport implements Transport {
   readonly sent: ClientCommand[] = [];
   private listeners = new Set<TransportListener>();
 
+  constructor(private readonly onSend?: (command: ClientCommand) => void) {}
+
   connect() {
     queueMicrotask(() => this.open());
   }
@@ -15,6 +17,7 @@ export class MockTransport implements Transport {
 
   send(command: ClientCommand) {
     this.sent.push(command);
+    this.onSend?.(command);
   }
 
   subscribe(listener: TransportListener) {

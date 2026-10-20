@@ -29,6 +29,9 @@ npm run preview    # просмотр production-сборки
 - `src/contract/` — zod-схемы сообщений сервера (`schemas.ts`), единая точка проверки входа `parseServerMessage` (`parse.ts`: invalid JSON, неподдерживаемая версия, невалидное сообщение) и контрактные фикстуры.
 - `src/state/gameState.ts` — чистый reducer: фазы `idle|lobby|active|resolving|finished|aborted`, состояние соединения, правила `streamId`/`seq` (повтор игнорируется, пропуск → `resync`, snapshot заменяет всё). `gameStore.ts` — маленький store, совместимый с `useSyncExternalStore`.
 - `src/transport/` — интерфейс `Transport` и `MockTransport`; реальный HTTP/WebSocket-транспорт будет реализовывать тот же интерфейс.
+- `src/input/` — логика ввода без DOM: `fireInput.ts` (кто может выбираться, когда выстрел заблокирован, сборка `match.fire`, защита от повтора до подтверждения состоянием), `formulaHelp.ts` (справка; тест сверяет список функций с `docs/contract.md`). Траектория и попадание на клиенте не считаются, предпросмотра линии нет.
+- `src/ui/` — `FirePanel` (список своих бойцов кнопками, поле формулы, Enter, справка; текст не стирается при ошибке), `MatchScreen` (выбор мышью по полю и кнопкой делят одно состояние), `useGameState` (`useSyncExternalStore`).
+- `src/demo/demoSession.ts` — сценарий вместо сервера для ручной проверки UI: отвечает ошибками `bad_expression`/`domain_error_at_start`, на остальное — фиксированным выстрелом без расчёта попаданий и сменой хода. Заменится реальным транспортом в F04/F05.
 
 ## Допущения к контракту v0.1 (нужно подтвердить с бэкендом)
 

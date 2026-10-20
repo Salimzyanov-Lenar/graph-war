@@ -30,3 +30,76 @@ body {
   min-height: 0;
   overflow: hidden;
 }
+
+.app h1 small {
+  font-size: 0.75rem;
+  font-weight: 400;
+  opacity: 0.6;
+}
+
+.match {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 1rem;
+}
+
+.fire-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 20rem;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.fire-panel fieldset {
+  border: 1px solid #2a3550;
+  border-radius: 6px;
+}
+
+.fighter-list {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fire-panel button[aria-pressed='true'] {
+  outline: 2px solid #ffd24a;
+}
+
+.fire-panel input,
+.fire-panel button {
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+}
+
+.fire-panel [role='alert'] {
+  color: #ff8a80;
+  margin: 0;
+}
+
+.fire-status {
+  margin: 0;
+  opacity: 0.8;
+}
+
+.formula-help code {
+  background: #1d2740;
+  padding: 0 0.25rem;
+}
+
+.formula-help .example {
+  padding: 0 0.25rem;
+}
+
+@media (max-width: 800px) {
+  .match {
+    flex-direction: column;
+  }
+  .fire-panel {
+    width: auto;
+  }
+}
