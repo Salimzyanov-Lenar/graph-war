@@ -8,6 +8,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Guest struct {
+	ID          pgtype.UUID
+	TokenHash   []byte
+	DisplayName string
+	CreatedAt   pgtype.Timestamptz
+	LastSeenAt  pgtype.Timestamptz
+}
+
 type Match struct {
 	ID         pgtype.UUID
 	Mode       string
