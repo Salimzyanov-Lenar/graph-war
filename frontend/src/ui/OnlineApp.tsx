@@ -4,6 +4,7 @@ import { ApiError, createRoomsApi, inviteLink, readInvite, type Guest, type Room
 import type { ClientCommand } from '../contract/schemas';
 import { createGameStore, type GameStore } from '../state/gameStore';
 import { createWsTransport, defaultWsUrl } from '../transport/wsTransport';
+import { ConnectionBanner } from './ConnectionBanner';
 import { MatchScreen } from './MatchScreen';
 import { useGameState } from './useGameState';
 
@@ -134,7 +135,7 @@ function RoomSession({ api, guest, joined, onLeave }: { api: RoomsApi; guest: Gu
 
   useEffect(() => {
     const transport = createWsTransport(defaultWsUrl());
-    const store = createGameStore(transport);
+    const store = createGameStore(transport, { reconnect: {} });
     store.connect();
     setSession({ store, send: (command) => transport.send(command) });
     return () => {
@@ -173,6 +174,7 @@ function RoomView({
   if (state.phase === 'active' || state.phase === 'resolving' || state.phase === 'finished') {
     return (
       <>
+        <ConnectionBanner state={state} onRetry={() => session.store.retry()} />
         <MatchScreen store={session.store} send={session.send} />
         <button type="button" onClick={onLeave}>
           Выйти из комнаты
@@ -200,14 +202,12 @@ function RoomView({
   return (
     <div className="lobby">
       <h2>Комната</h2>
+      <ConnectionBanner state={state} onRetry={() => session.store.retry()} />
       {joined.invite && (
         <p>
           Отправьте другу ссылку: <input readOnly value={joined.invite} aria-label="Ссылка-приглашение" onFocus={(event) => event.target.select()} />
         </p>
       )}
-      <p className="fire-status">
-        Соединение: {state.connection === 'open' ? 'есть' : state.connection === 'connecting' ? 'устанавливается…' : 'нет'}
-      </p>
       <ul>
         {state.players.map((player) => (
           <li key={player.guestId}>

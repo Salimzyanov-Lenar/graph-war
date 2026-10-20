@@ -69,4 +69,96 @@ describe('createGameStore + MockTransport', () => {
     transport.emit({ ...fixtures.shotResolved, seq: 11 });
     expect(store.getState().phase).toBe('idle');
   });
+
+  describe('авто-переподключение', () => {
+    function setup(maxAttempts = 3) {
+      const transport = new MockTransport();
+      const timers: { callback: () => void; ms: number; handle: number }[] = [];
+      let next = 0;
+      const connect = vi.spyOn(transport, 'connect');
+      const store = createGameStore(transport, {
+        reconnect: {
+          policy: { baseMs: 100, maxMs: 1000, maxAttempts },
+          random: () => 1,
+          setTimer: (callback, ms) => {
+            const handle = (next += 1);
+            timers.push({ callback, ms, handle });
+            return handle;
+          },
+          clearTimer: (handle) => {
+            const index = timers.findIndex((t) => t.handle === handle);
+            if (index >= 0) timers.splice(index, 1);
+          },
+        },
+      });
+      return { transport, store, timers, connect };
+    }
+
+    it('обрыв в матче → reconnecting, повтор по таймеру, snapshot восстанавливает состояние', () => {
+      const { transport, store, timers, connect } = setup();
+      store.connect();
+      transport.open();
+      transport.emit(fixtures.activeSnapshot);
+      connect.mockClear();
+
+      transport.drop();
+      expect(store.getState().connection).toBe('reconnecting');
+      expect(store.getState().phase).toBe('active');
+      expect(timers.map((t) => t.ms)).toEqual([100]);
+
+      timers[0]?.callback();
+      expect(connect).toHaveBeenCalledTimes(1);
+      transport.open();
+      transport.emit({ ...fixtures.activeSnapshot, seq: 1 });
+      expect(store.getState()).toMatchObject({ connection: 'open', phase: 'active', lastSeq: 1 });
+    });
+
+    it('после maxAttempts неудач сдаётся (closed); retry() даёт новую серию попыток', () => {
+      const { transport, store, timers, connect } = setup(2);
+      store.connect();
+      transport.open();
+      transport.drop();
+      timers.shift()?.callback();
+      transport.drop();
+      timers.shift()?.callback();
+      transport.drop();
+      expect(store.getState().connection).toBe('closed');
+      expect(timers).toHaveLength(0);
+
+      connect.mockClear();
+      store.retry();
+      expect(store.getState().connection).toBe('reconnecting');
+      expect(connect).toHaveBeenCalledTimes(1);
+      transport.open();
+      expect(store.getState().connection).toBe('open');
+    });
+
+    it('после завершения матча и после dispose не переподключается', () => {
+      const first = setup();
+      first.store.connect();
+      first.transport.open();
+      first.transport.emit({ ...fixtures.activeSnapshot, payload: { ...fixtures.activeSnapshot.payload, phase: 'aborted' } });
+      first.transport.drop();
+      expect(first.store.getState().connection).toBe('closed');
+      expect(first.timers).toHaveLength(0);
+
+      const second = setup();
+      second.store.connect();
+      second.transport.open();
+      second.transport.drop();
+      expect(second.timers).toHaveLength(1);
+      second.store.dispose();
+      expect(second.timers).toHaveLength(0);
+    });
+
+    it('переподключение из-за дыры в seq не запускает ещё и таймер обрыва', () => {
+      const { transport, store, timers } = setup();
+      transport.emit(fixtures.activeSnapshot);
+      store.connect();
+      transport.open();
+      transport.emit({ ...fixtures.shotResolved, seq: 15 });
+      expect(store.getState().connection).toBe('reconnecting');
+      expect(timers).toHaveLength(0);
+    });
+  });
 });

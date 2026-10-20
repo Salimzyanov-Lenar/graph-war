@@ -2,7 +2,7 @@ import type { ClientCommand } from '../contract/schemas';
 import type { Fighter } from '../field/types';
 import type { GameState } from '../state/gameState';
 
-export type FireBlock = 'not_active' | 'resolving' | 'finished' | 'not_your_turn' | 'no_fighter' | 'empty' | 'pending';
+export type FireBlock = 'not_active' | 'resolving' | 'finished' | 'not_your_turn' | 'no_fighter' | 'empty' | 'pending' | 'offline';
 
 export function myFighters(state: GameState): Fighter[] {
   const side = state.match?.yourSide;
@@ -53,6 +53,7 @@ export function fireBlock(
   if (state.phase === 'finished' || state.phase === 'aborted') return 'finished';
   if (state.phase === 'resolving') return 'resolving';
   if (state.phase !== 'active' || !state.match) return 'not_active';
+  if (state.connection === 'reconnecting' || state.connection === 'closed') return 'offline';
   if (!isMyTurn(state)) return 'not_your_turn';
   if (pending && !isPendingResolved(state, pending)) return 'pending';
   if (!selectableFighter(state, selectedId)) return 'no_fighter';
@@ -68,6 +69,7 @@ export const FIRE_BLOCK_TEXT: Record<FireBlock, string> = {
   no_fighter: 'Выберите своего живого бойца.',
   empty: 'Введите формулу.',
   pending: 'Выстрел отправлен, ждём ответ сервера…',
+  offline: 'Нет соединения с сервером — выстрел не отправлен.',
 };
 
 /** Клиент присылает только fighterId и expression; координат, попаданий и победителя в команде нет. */
