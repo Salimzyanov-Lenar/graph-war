@@ -1,6 +1,6 @@
 # Контракт гостевой игры Graphwar
 
-**Статус:** v0.1 — утверждена backend-разработчиком как рабочая база (2026-10-20); финальное подтверждение frontend-разработчика — при ревью F-задач. Изменения — только через MR с подъёмом версии. Числа численной модели — из эксперимента D01 (`.scratch/graphwar/issues/01-numerical-model.md`, resolved).
+**Статус:** v0.2 — синхронизирована с контрактным слоем фронтенда (`frontend/src/contract/schemas.ts`, F03): стороны `A`/`B`, фаза `lobby`, стоп-причина `hit`, время в Unix-ms, опциональное поле версии `v` в конверте. Изменения — только через MR с подъёмом версии. Числа численной модели — из эксперимента D01 (`.scratch/graphwar/issues/01-numerical-model.md`, resolved).
 
 Контракт фиксирует всё, что фронтенд и бэкенд обязаны трактовать одинаково. Термины — [../CONTEXT.md](../CONTEXT.md). Изменения контракта — только через MR с пометкой версии.
 
@@ -8,7 +8,7 @@
 
 - Поле: прямоугольник **ширина 100 × высота 60** единиц. Начало координат — левый нижний угол, **y вверх**, x вправо.
 - Экранные пиксели, devicePixelRatio и letterbox — забота фронтенда; сервер знает только мировые координаты.
-- Игрок A стреляет слева направо, игрок B — справа налево.
+- Стороны — **`"A"` и `"B"`** (строчные не допускаются). Игрок A стреляет слева направо (`dir = +1`), игрок B — справа налево (`dir = -1`).
 
 ### Локальные координаты стрелка
 
@@ -42,7 +42,8 @@
 - Шаг: `t` увеличивается с шагом **0.5** единицы; максимум **400 отсчётов** на выстрел (покрывает 200 единиц пути).
 - В каждом интервале между соседними отсчётами — **2 подпробы** (на 1/3 и 2/3 интервала).
 - Стоп-причины выстрела:
-  - `out_of_field` — очередная точка вне поля (по x или по Y);
+  - `hit` — первое пересечение с препятствием или живым бойцом (кроме стрелка); траектория обрезается точно на точке столкновения; `destroyedFighterId` указывается, если сбит боец (детали — B05);
+  - `out_of_field` — очередная точка вне поля (по x или по Y); последняя точка включается, чтобы фронт видел направление выхода;
   - `discontinuity` — подпроба/отсчёт дали не-конечное значение или `|f(t)-f(0)| > 1e6` (асимптота/переполнение); траектория заканчивается на **последней валидной** точке, через разрыв не соединяется;
   - `non_finite` — то же на самом отсчёте (обрыв до него);
   - `max_points` — бюджет отсчётов исчерпан.
@@ -72,7 +73,7 @@
 
 ## 6. Состояния матча
 
-`waiting` → `active` → (`resolving` ↔ `active`)* → `finished`; в любой момент → `aborted`.
+`lobby` → `active` → (`resolving` ↔ `active`)* → `finished`; в любой момент → `aborted`.
 
 - `resolving` — сервер принял выстрел, клиенты показывают анимацию; длительность фазы фиксирована контрактом: **1200 мс** (предложение, утверждают оба); следующий ход открывается сервером по истечении фазы, подтверждение анимации от клиента не ждётся.
 - `finished` — итог + причина: `team_wiped` | `surrender` | `timeout_streak` | `forfeit_disconnect`.
@@ -103,11 +104,13 @@ DELETE /api/rooms/{id}     (выход)
 - Endpoint `/ws`; handshake авторизуется cookie, Origin проверяется allowlist'ом (точный scheme://host:port).
 - Конверт каждого сообщения:
 ```json
-{"type": "...", "streamId": "match:<id>", "seq": 42, "payload": {...}}
+{"v": 1, "type": "...", "streamId": "match:<id>", "seq": 42, "payload": {...}}
 ```
+- `v` — версия протокола, сейчас `1`; поле опционально (для обратной совместимости), но если пришло и не совпало — сообщение отвергается.
 - `seq` монотонна в рамках stream; повтор — игнорировать, разрыв — запросить resync, snapshot заменяет всё.
+- Время (`deadlineAt`, `serverTime`) — **Unix epoch в миллисекундах** (число).
 - Команды клиента: `room.ready`, `match.fire {matchId, expectedTurnId, fighterId, expression, requestId}`, `match.surrender {confirm: true}`.
-- События сервера: `snapshot`, `room.changed`, `match.started`, `turn.opened {turnId, fighterId?, deadlineAt, serverTime}`, `shot.resolved {shotId, turnId, points: [[x,y]...], stopReason, destroyedFighterId?}`, `match.finished {winnerSide?, reason}`, `error {code, message}`.
+- События сервера: `snapshot`, `room.changed`, `match.started`, `turn.opened {turnId, side?, fighterId?, deadlineAt, serverTime}`, `shot.resolved {shotId, turnId, points: [[x,y]...], stopReason, destroyedFighterId?}`, `match.finished {winnerSide?, reason}`, `error {code, message}`.
 - Клиент в командах **не присылает** координаты, попадания, damage, winner — только `fighterId` и `expression`.
 - Дедупликация: `requestId` в пределах участника и матча; повтор с тем же содержимым → прежний ответ, с иным содержимым → `error/duplicate_request`.
 - Ошибочные коды: `bad_expression` (парсинг), `domain_error_at_start` (f(0)), `not_your_turn`, `unknown_fighter`, `dead_fighter`, `room_full`, `room_expired`, `unauthorized`, `rate_limited`, `duplicate_request`, `stale_turn` (не совпал `expectedTurnId`), `server_error`.

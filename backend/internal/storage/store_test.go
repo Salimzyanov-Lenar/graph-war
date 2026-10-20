@@ -33,7 +33,7 @@ func TestMatchRoundtrip(t *testing.T) {
 		t.Errorf("new match status = %q, want active", match.Status)
 	}
 
-	for _, side := range []string{"a", "b"} {
+	for _, side := range []string{"A", "B"} {
 		p, err := store.Queries.CreateParticipant(ctx, db.CreateParticipantParams{
 			MatchID:     match.ID,
 			Side:        side,
@@ -63,14 +63,14 @@ func TestMatchRoundtrip(t *testing.T) {
 	if len(parts) != 2 {
 		t.Fatalf("participants = %d, want 2", len(parts))
 	}
-	if parts[0].Side != "a" || parts[1].Side != "b" {
-		t.Errorf("participant sides = [%s %s], want [a b]", parts[0].Side, parts[1].Side)
+	if parts[0].Side != "A" || parts[1].Side != "B" {
+		t.Errorf("participant sides = [%s %s], want [A B]", parts[0].Side, parts[1].Side)
 	}
 
-	// One side per match is unique: a second 'a' must be rejected.
+	// One side per match is unique: a second 'A' must be rejected.
 	_, err = store.Queries.CreateParticipant(ctx, db.CreateParticipantParams{
 		MatchID:     match.ID,
-		Side:        "a",
+		Side:        "A",
 		DisplayName: "intruder",
 		GuestID:     "opaque-x",
 	})
