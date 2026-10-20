@@ -1,0 +1,9 @@
+# Go
+backend/bin/
+
+# Env
+.env
+.env.local
+
+# macOS
+.DS_Store
