@@ -20,35 +20,43 @@ const COLORS = {
   side: { A: 0x4f8cff, B: 0xff7a59 } satisfies Record<Side, number>,
 };
 
-export interface FieldSceneOptions {
-  onFighterClick?: (fighter: Fighter) => void;
+export interface FieldSource {
+  getState(): FieldState | undefined;
+  subscribe(listener: () => void): () => void;
+  onFighterClick?(fighter: Fighter): void;
 }
 
-export function setupFieldScene(app: Application, state: FieldState, options: FieldSceneOptions = {}): Teardown {
+export function staticFieldSource(state: FieldState): FieldSource {
+  return { getState: () => state, subscribe: () => () => {} };
+}
+
+export function setupFieldScene(app: Application, source: FieldSource): Teardown {
   const graphics = new Graphics();
   const labels = new Container();
   app.stage.addChild(graphics, labels);
   app.stage.eventMode = 'static';
   app.stage.cursor = 'default';
 
-  let viewport: Viewport = makeViewport();
+  let state = source.getState();
+  let viewport: Viewport | undefined;
   let hoveredId: string | undefined;
 
-  function makeViewport(): Viewport {
-    return createViewport({
+  function draw() {
+    state = source.getState();
+    app.stage.hitArea = app.screen;
+    graphics.clear();
+    for (const child of labels.removeChildren()) child.destroy();
+    if (!state) {
+      viewport = undefined;
+      return;
+    }
+    viewport = createViewport({
       worldWidth: state.width,
       worldHeight: state.height,
       screenWidth: app.screen.width,
       screenHeight: app.screen.height,
       padding: PADDING,
     });
-  }
-
-  function draw() {
-    viewport = makeViewport();
-    app.stage.hitArea = app.screen;
-    graphics.clear();
-    for (const child of labels.removeChildren()) child.destroy();
 
     drawField(graphics, viewport, state);
     for (const obstacle of state.obstacles) {
@@ -67,6 +75,7 @@ export function setupFieldScene(app: Application, state: FieldState, options: Fi
   }
 
   function fighterAt(event: FederatedPointerEvent): Fighter | undefined {
+    if (!state || !viewport) return undefined;
     const world = viewport.screenToWorld({ x: event.global.x, y: event.global.y });
     return pickFighter(state.fighters, world);
   }
@@ -86,16 +95,18 @@ export function setupFieldScene(app: Application, state: FieldState, options: Fi
   };
   const onTap = (event: FederatedPointerEvent) => {
     const fighter = fighterAt(event);
-    if (fighter) options.onFighterClick?.(fighter);
+    if (fighter) source.onFighterClick?.(fighter);
   };
 
   app.stage.on('pointermove', onMove);
   app.stage.on('pointerleave', onLeave);
   app.stage.on('pointertap', onTap);
   app.renderer.on('resize', draw);
+  const unsubscribe = source.subscribe(draw);
   draw();
 
   return () => {
+    unsubscribe();
     app.renderer.off('resize', draw);
     app.stage.off('pointermove', onMove);
     app.stage.off('pointerleave', onLeave);
@@ -168,10 +179,11 @@ function drawFighter(g: Graphics, labels: Container, view: Viewport, fighter: Fi
   labels.addChild(label);
 }
 
-export function mountFieldScene(host: HTMLElement, onError: (error: unknown) => void): SceneHandle {
-  return mountScene(host, {
-    createApp: () => new Application(),
-    setup: (app) => setupFieldScene(app, sampleField),
-    onError,
-  });
+export function mountFieldScene(source: FieldSource = staticFieldSource(sampleField)) {
+  return (host: HTMLElement, onError: (error: unknown) => void): SceneHandle =>
+    mountScene(host, {
+      createApp: () => new Application(),
+      setup: (app) => setupFieldScene(app, source),
+      onError,
+    });
 }

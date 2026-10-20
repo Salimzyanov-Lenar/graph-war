@@ -96,11 +96,11 @@ function applyEvent(state: GameState, message: Exclude<ServerMessage, { type: 's
       return { ...state, players: message.payload.players, phase: state.phase === 'idle' ? 'lobby' : state.phase };
 
     case 'match.started':
-      return { ...state, phase: 'active', match: message.payload, turn: undefined, lastShot: undefined, result: undefined };
+      return { ...state, phase: 'active', match: message.payload, turn: undefined, lastShot: undefined, result: undefined, lastError: undefined };
 
     case 'turn.opened':
       if (state.phase !== 'active' && state.phase !== 'resolving') return undefined;
-      return { ...state, phase: 'active', turn: message.payload };
+      return { ...state, phase: 'active', turn: message.payload, lastError: undefined };
 
     case 'shot.resolved': {
       if ((state.phase !== 'active' && state.phase !== 'resolving') || !state.match) return undefined;
@@ -108,7 +108,7 @@ function applyEvent(state: GameState, message: Exclude<ServerMessage, { type: 's
       const fighters = destroyed
         ? state.match.fighters.map((f) => (f.id === destroyed ? { ...f, alive: false } : f))
         : state.match.fighters;
-      return { ...state, phase: 'resolving', lastShot: message.payload, match: { ...state.match, fighters } };
+      return { ...state, phase: 'resolving', lastShot: message.payload, lastError: undefined, match: { ...state.match, fighters } };
     }
 
     case 'match.finished':

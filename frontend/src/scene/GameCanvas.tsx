@@ -8,7 +8,9 @@ interface GameCanvasProps {
   mount?: MountScene;
 }
 
-export function GameCanvas({ mount = mountFieldScene }: GameCanvasProps) {
+const defaultMount = mountFieldScene();
+
+export function GameCanvas({ mount = defaultMount }: GameCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
 
