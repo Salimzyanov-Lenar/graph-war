@@ -25,7 +25,7 @@ npm run preview    # просмотр production-сборки
 - `src/field/viewport.ts` — единственный адаптер `worldToScreen`/`screenToWorld`: мир 100×60, x вправо, y вверх; экран в CSS-пикселях, y вниз; сохраняет пропорции, центрирует поле (letterbox), учитывает отступы. DPR обрабатывает Pixi (`autoDensity`).
 - `src/field/hitTest.ts` — выбор бойца по курсору в мировых координатах (не зависит от размера окна).
 - `src/field/fieldScene.ts` — сцена поля: сетка, оси, границы, препятствия, шесть бойцов. Сторона различается формой (A — круг, B — квадрат), убитый — полупрозрачный с крестом, выбранный стрелок — жёлтое кольцо; наведение — белое кольцо. Всё берётся из `FieldState`, а не из случайных чисел или CSS.
-- `src/field/fixtures.ts` — ручная фикстура по контракту `docs/contract.md` v0.1 (пока на ветке `backend/c01-contract-doc`). Реальную карту отдаст сервер (B06).
+- `src/field/fixtures.ts` — ручная фикстура по контракту `docs/contract.md` v0.1. Реальную карту отдаст сервер (B06).
 - `src/contract/` — zod-схемы сообщений сервера (`schemas.ts`), единая точка проверки входа `parseServerMessage` (`parse.ts`: invalid JSON, неподдерживаемая версия, невалидное сообщение) и контрактные фикстуры.
 - `src/state/gameState.ts` — чистый reducer: фазы `idle|lobby|active|resolving|finished|aborted`, состояние соединения, правила `streamId`/`seq` (повтор игнорируется, пропуск → `resync`, snapshot заменяет всё). `gameStore.ts` — маленький store, совместимый с `useSyncExternalStore`.
 - `src/transport/` — интерфейс `Transport` и `MockTransport`; реальный HTTP/WebSocket-транспорт будет реализовывать тот же интерфейс.
