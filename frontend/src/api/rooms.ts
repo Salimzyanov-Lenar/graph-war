@@ -1,9 +1,13 @@
 import { z } from 'zod';
 
-const guestSchema = z.object({ guestId: z.string(), displayName: z.string() });
+const guestSchema = z.object({ guestId: z.string() });
 const roomSchema = z.object({ roomId: z.string(), inviteId: z.string() });
 
-export type Guest = z.infer<typeof guestSchema>;
+/** Сервер в ответе возвращает только guestId; имя остаётся тем, что ввёл игрок. */
+export interface Guest {
+  guestId: string;
+  displayName: string;
+}
 export type Room = z.infer<typeof roomSchema>;
 
 export class ApiError extends Error {
@@ -52,7 +56,8 @@ export function createRoomsApi(fetchImpl: Fetch = (...args) => fetch(...args)): 
 
   return {
     async createGuest(displayName) {
-      return guestSchema.parse(await call('POST', '/api/guest', { displayName }));
+      const { guestId } = guestSchema.parse(await call('POST', '/api/guest', { displayName }));
+      return { guestId, displayName };
     },
     async createRoom() {
       return roomSchema.parse(await call('POST', '/api/rooms'));

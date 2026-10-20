@@ -30,8 +30,11 @@ export function createGameStore(transport: Transport): GameStore {
       const outcome = applyRawMessage(state, raw);
       if (outcome.rejected) rejected.push(outcome.rejected);
       set(outcome.state);
-      if (outcome.resync && state.streamId) {
-        transport.send({ type: 'stream.resync', payload: { streamId: state.streamId } });
+      if (outcome.reconnect) {
+        // stream.resync в контракте нет: при дыре в seq переподключаемся, /ws первым сообщением шлёт snapshot.
+        transport.close();
+        set(setConnection(state, 'reconnecting'));
+        transport.connect();
       }
     },
   });

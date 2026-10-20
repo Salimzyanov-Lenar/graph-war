@@ -12,6 +12,9 @@ const API_ERRORS: Record<string, string> = {
   room_expired: 'Комната закрыта или приглашение устарело.',
   unauthorized: 'Сессия не найдена — введите имя заново.',
   rate_limited: 'Слишком часто. Подождите немного.',
+  invalid_invite: 'Приглашение не найдено. Попросите у друга новую ссылку.',
+  invalid_name: 'Имя не подходит. Попробуйте другое.',
+  name_too_long: 'Имя слишком длинное (не больше 24 символов).',
 };
 
 export function apiErrorText(error: unknown): string {

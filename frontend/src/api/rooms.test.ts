@@ -5,7 +5,7 @@ const json = (status: number, body?: unknown) => new Response(body === undefined
 
 describe('createRoomsApi', () => {
   it('посылает запросы по контракту с cookie', async () => {
-    const fetchMock = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => json(200, { guestId: 'g1', displayName: 'Аня' }));
+    const fetchMock = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => json(201, { guestId: 'g1' }));
     const api = createRoomsApi(fetchMock as unknown as typeof fetch);
 
     await expect(api.createGuest('Аня')).resolves.toEqual({ guestId: 'g1', displayName: 'Аня' });

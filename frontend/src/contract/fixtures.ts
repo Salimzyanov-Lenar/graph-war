@@ -56,8 +56,6 @@ export const fixtures = {
   },
   error: {
     type: 'error',
-    streamId: MATCH,
-    seq: 13,
     payload: { code: 'not_your_turn', message: 'сейчас ход соперника' },
   },
 } satisfies Record<string, ServerMessage>;

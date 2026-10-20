@@ -2,7 +2,7 @@ import { parseServerMessage, type ParseResult } from '../contract/parse';
 import type { MatchBody, MatchResult, Phase, Player, ServerMessage, Shot, Turn } from '../contract/schemas';
 import type { FieldState } from '../field/types';
 
-export type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'resyncing';
+export type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'reconnecting';
 
 export interface GameState {
   connection: ConnectionStatus;
@@ -25,17 +25,17 @@ export const initialGameState: GameState = {
   players: [],
 };
 
-export type IgnoredReason = 'no_stream' | 'other_stream' | 'resyncing' | 'duplicate' | 'out_of_phase';
+export type IgnoredReason = 'no_stream' | 'other_stream' | 'reconnecting' | 'duplicate' | 'out_of_phase';
 
 export interface Outcome {
   state: GameState;
-  /** true — после этого сообщения клиент должен запросить у сервера новый snapshot. */
-  resync: boolean;
+  /** true — в потоке дыра: клиент переподключается к /ws, первым сообщением придёт свежий snapshot. */
+  reconnect: boolean;
   ignored?: IgnoredReason;
   rejected?: Extract<ParseResult, { ok: false }>;
 }
 
-const keep = (state: GameState, ignored: IgnoredReason): Outcome => ({ state, resync: false, ignored });
+const keep = (state: GameState, ignored: IgnoredReason): Outcome => ({ state, reconnect: false, ignored });
 
 export function setConnection(state: GameState, connection: ConnectionStatus): GameState {
   return state.connection === connection ? state : { ...state, connection };
@@ -48,7 +48,7 @@ export function leaveRoom(state: GameState): GameState {
 
 export function applyRawMessage(state: GameState, raw: unknown): Outcome {
   const parsed = parseServerMessage(raw);
-  if (!parsed.ok) return { state, resync: false, rejected: parsed };
+  if (!parsed.ok) return { state, reconnect: false, rejected: parsed };
   return applyServerMessage(state, parsed.message);
 }
 
@@ -56,9 +56,9 @@ export function applyServerMessage(state: GameState, message: ServerMessage): Ou
   if (message.type === 'snapshot') {
     const { payload } = message;
     return {
-      resync: false,
+      reconnect: false,
       state: {
-        connection: state.connection === 'resyncing' ? 'open' : state.connection,
+        connection: state.connection === 'reconnecting' ? 'open' : state.connection,
         streamId: message.streamId,
         lastSeq: message.seq,
         phase: payload.phase,
@@ -72,22 +72,22 @@ export function applyServerMessage(state: GameState, message: ServerMessage): Ou
     };
   }
 
+  // Ошибка команды приходит только отправителю, без streamId и seq: в поток событий не входит.
+  if (message.type === 'error') {
+    return { reconnect: false, state: { ...state, lastError: message.payload } };
+  }
+
   if (state.streamId === undefined) return keep(state, 'no_stream');
   if (message.streamId !== state.streamId) return keep(state, 'other_stream');
 
-  // Ошибки команд могут не входить в последовательность событий матча, поэтому seq для них не проверяется.
-  if (message.type === 'error') {
-    return { resync: false, state: { ...state, lastError: message.payload } };
-  }
-
-  if (state.connection === 'resyncing') return keep(state, 'resyncing');
+  if (state.connection === 'reconnecting') return keep(state, 'reconnecting');
   if (message.seq <= state.lastSeq) return keep(state, 'duplicate');
   if (message.seq > state.lastSeq + 1) {
-    return { resync: true, state: { ...state, connection: 'resyncing' } };
+    return { reconnect: true, state: { ...state, connection: 'reconnecting' } };
   }
 
   const next = applyEvent({ ...state, lastSeq: message.seq }, message);
-  return next ? { resync: false, state: next } : keep(state, 'out_of_phase');
+  return next ? { reconnect: false, state: next } : keep(state, 'out_of_phase');
 }
 
 function applyEvent(state: GameState, message: Exclude<ServerMessage, { type: 'snapshot' | 'error' }>): GameState | undefined {

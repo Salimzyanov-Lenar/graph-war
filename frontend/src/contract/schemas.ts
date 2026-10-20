@@ -28,7 +28,7 @@ export const phaseSchema = z.enum(['lobby', 'active', 'resolving', 'finished', '
 
 /** Известные значения из docs/contract.md. Схемы принимают любую непустую строку: незнакомая причина не должна отбрасывать целое сообщение (итог матча, выстрел). */
 export const KNOWN_FINISH_REASONS = ['team_wiped', 'surrender', 'timeout_streak', 'forfeit_disconnect'] as const;
-export const KNOWN_STOP_REASONS = ['out_of_field', 'discontinuity', 'non_finite', 'max_points'] as const;
+export const KNOWN_STOP_REASONS = ['hit', 'out_of_field', 'discontinuity', 'non_finite', 'max_points'] as const;
 export const KNOWN_ERROR_CODES = [
   'bad_expression',
   'domain_error_at_start',
@@ -109,7 +109,12 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   message('turn.opened', turnSchema),
   message('shot.resolved', shotSchema),
   message('match.finished', resultSchema),
-  message('error', z.object({ code: errorCodeSchema, message: z.string().max(500) })),
+  // Ошибка команды уходит только отправителю и не входит в поток событий: ни streamId, ни seq у неё нет.
+  z.object({
+    v: envelope.v,
+    type: z.literal('error'),
+    payload: z.object({ code: errorCodeSchema, message: z.string().max(500) }),
+  }),
 ]);
 
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
@@ -130,5 +135,4 @@ export type ClientCommand =
       type: 'match.fire';
       payload: { matchId: string; expectedTurnId: string; fighterId: string; expression: string; requestId: string };
     }
-  | { type: 'match.surrender'; payload: { confirm: true } }
-  | { type: 'stream.resync'; payload: { streamId: string } };
+  | { type: 'match.surrender'; payload: { confirm: true } };

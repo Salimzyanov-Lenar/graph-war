@@ -4,7 +4,8 @@ import type { ServerMessage } from '../contract/schemas';
 import { applyRawMessage, applyServerMessage, initialGameState, leaveRoom, setConnection, toFieldState, type GameState } from './gameState';
 
 const active = (): GameState => applyServerMessage(initialGameState, fixtures.activeSnapshot).state;
-const at = (message: ServerMessage, seq: number): ServerMessage => ({ ...message, seq });
+type StreamMessage = Exclude<ServerMessage, { type: 'error' }>;
+const at = (message: StreamMessage, seq: number): StreamMessage => ({ ...message, seq });
 
 describe('snapshot', () => {
   it('заменяет всё состояние, берёт streamId/seq и переводит в active', () => {
@@ -46,15 +47,15 @@ describe('последовательность seq', () => {
     expect(applyServerMessage(afterShot, at(fixtures.turnOpened, 5)).ignored).toBe('duplicate');
   });
 
-  it('пропуск seq не применяет событие, запрашивает resync и замораживает поток до snapshot', () => {
+  it('пропуск seq не применяет событие, требует переподключения и замораживает поток до snapshot', () => {
     const gap = applyServerMessage(active(), at(fixtures.shotResolved, 13));
-    expect(gap.resync).toBe(true);
-    expect(gap.state.connection).toBe('resyncing');
+    expect(gap.reconnect).toBe(true);
+    expect(gap.state.connection).toBe('reconnecting');
     expect(gap.state.phase).toBe('active');
     expect(gap.state.lastShot).toBeUndefined();
 
     const during = applyServerMessage(gap.state, at(fixtures.turnOpened, 14));
-    expect(during).toMatchObject({ ignored: 'resyncing', resync: false });
+    expect(during).toMatchObject({ ignored: 'reconnecting', reconnect: false });
 
     const recovered = applyServerMessage(gap.state, { ...fixtures.activeSnapshot, seq: 20 }).state;
     expect(recovered).toMatchObject({ connection: 'open', lastSeq: 20 });
@@ -117,6 +118,12 @@ describe('переходы фаз', () => {
     const state = applyServerMessage(active(), fixtures.error).state;
     expect(state.lastError).toEqual({ code: 'not_your_turn', message: 'сейчас ход соперника' });
     expect(state.lastSeq).toBe(10);
+  });
+
+  it('ошибка без streamId и seq принимается и до первого snapshot', () => {
+    const outcome = applyRawMessage(initialGameState, { type: 'error', payload: { code: 'unauthorized', message: 'нет сессии' } });
+    expect(outcome.rejected).toBeUndefined();
+    expect(outcome.state.lastError?.code).toBe('unauthorized');
   });
 });
 

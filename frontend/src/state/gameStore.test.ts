@@ -29,14 +29,23 @@ describe('createGameStore + MockTransport', () => {
     expect(store.rejected.map((r) => r.reason)).toEqual(['invalid_json', 'invalid_message']);
   });
 
-  it('при пропуске seq отправляет stream.resync с текущим streamId', () => {
+  it('при пропуске seq переподключается, а не шлёт команд; свежий snapshot восстанавливает состояние', async () => {
     const transport = new MockTransport();
+    const connect = vi.spyOn(transport, 'connect');
+    const close = vi.spyOn(transport, 'close');
     const store = createGameStore(transport);
     transport.emit(fixtures.activeSnapshot);
     transport.emit({ ...fixtures.shotResolved, seq: 15 });
 
-    expect(store.getState().connection).toBe('resyncing');
-    expect(transport.sent).toEqual([{ type: 'stream.resync', payload: { streamId: 'match:m1' } }]);
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(store.getState().connection).toBe('reconnecting');
+    expect(transport.sent).toEqual([]);
+
+    await Promise.resolve();
+    expect(store.getState().connection).toBe('open');
+    transport.emit({ ...fixtures.activeSnapshot, seq: 1 });
+    expect(store.getState()).toMatchObject({ connection: 'open', lastSeq: 1, phase: 'active' });
   });
 
   it('обрыв соединения переводит в closed, dispose отписывается от транспорта', () => {
