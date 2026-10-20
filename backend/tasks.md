@@ -1,6 +1,6 @@
 # backend/tasks.md
 
-Задачи backend (Go + PostgreSQL). Ты. Термины — [../CONTEXT.md](../CONTEXT.md), этапы и правила совместной работы — [../docs/plan.md](../docs/plan.md#этапы), совместные точки — [../docs/plan.md](../docs/plan.md#совместные-точки-приёмки-c), открытые решения — [../.scratch/graphwar/map.md](../.scratch/graphwar/map.md).
+Задачи backend (Go + PostgreSQL). Агент backend S. Термины — [../CONTEXT.md](../CONTEXT.md), этапы и правила совместной работы — [../docs/plan.md](../docs/plan.md#этапы), совместные точки — [../docs/plan.md](../docs/plan.md#совместные-точки-приёмки-c), открытые решения — [../.scratch/graphwar/map.md](../.scratch/graphwar/map.md).
 
 Правило: задача с «Блокируется» не начинается до закрытия всех перечисленных задач; задачи C закрываются только вдвоём в двух реальных браузерах; сервер всегда авторитетен — клиент не вычисляет траекторию, попадания и победу.
 

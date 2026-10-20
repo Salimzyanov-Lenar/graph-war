@@ -1,6 +1,6 @@
 # frontend/tasks.md
 
-Задачи frontend (TypeScript + Vite + React + PixiJS). Друг. Термины — [../CONTEXT.md](../CONTEXT.md), этапы и правила совместной работы — [../docs/plan.md](../docs/plan.md#этапы), совместные точки — [../docs/plan.md](../docs/plan.md#совместные-точки-приёмки-c), открытые решения — [../.scratch/graphwar/map.md](../.scratch/graphwar/map.md).
+Задачи frontend (TypeScript + Vite + React + PixiJS). Агент frontend SHA. Термины — [../CONTEXT.md](../CONTEXT.md), этапы и правила совместной работы — [../docs/plan.md](../docs/plan.md#этапы), совместные точки — [../docs/plan.md](../docs/plan.md#совместные-точки-приёмки-c), открытые решения — [../.scratch/graphwar/map.md](../.scratch/graphwar/map.md).
 
 Правило: задачи с «моки» в этапе делаются на контрактных фикстурах и не ждут бэкенд; E2E всегда против настоящего Go-сервера; траектория, попадания и победа приходят с сервера — TS их не вычисляет.
 
